@@ -11,6 +11,7 @@ import (
 
 	"github.com/grounded042/hike_map_translator/garmin"
 	"github.com/grounded042/hike_map_translator/models"
+	uuid "github.com/satori/go.uuid"
 )
 
 const timestampFormat = "01/02/2006"
@@ -75,6 +76,7 @@ func generateJSON(gFrom generateFrom) {
 		ioutil.WriteFile(tripsFolder+detailsFilePath, dJSON, 0644)
 
 		index[dayNum].Index = dayNum
+		index[dayNum].ID = uuid.Must(uuid.NewV4())
 		index[dayNum].Label = dayName
 		index[dayNum].SubLabel = key
 		index[dayNum].DetailsLocation = detailsFilePath
@@ -88,6 +90,7 @@ func generateJSON(gFrom generateFrom) {
 	ioutil.WriteFile(tripsFolder+detailsFilePath, dJSON, 0644)
 
 	index[0].Index = 0
+	index[0].ID = uuid.Must(uuid.NewV4())
 	index[0].Label = dayName
 	index[0].DetailsLocation = detailsFilePath
 

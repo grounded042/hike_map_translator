@@ -3,6 +3,8 @@ package models
 import (
 	"sort"
 	"time"
+
+	"github.com/satori/go.uuid"
 )
 
 // Point represents a point on the Earth
@@ -119,10 +121,11 @@ type Bounds struct {
 
 // IndexDay holds the index details for a day
 type IndexDay struct {
-	Index           int    `json:"index"`
-	Label           string `json:"label"`
-	SubLabel        string `json:"subLabel"`
-	DetailsLocation string `json:"detailsLocation"`
+	Index           int       `json:"index"`
+	ID              uuid.UUID `json:"id"`
+	Label           string    `json:"label"`
+	SubLabel        string    `json:"subLabel"`
+	DetailsLocation string    `json:"detailsLocation"`
 }
 
 // Index is the type that holds an index entry for each day
