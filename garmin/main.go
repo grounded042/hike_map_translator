@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/grounded042/hike_map_translator/util"
+
 	"github.com/grounded042/hike_map_translator/models"
 )
 
@@ -107,6 +109,18 @@ func LoadFile(filepath string) (*Kml, error) {
 	byteValue, _ := ioutil.ReadAll(kmlFile)
 
 	return LoadSliceOfBytes(byteValue), nil
+}
+
+// LoadURL loads data from the specified URL and returns the Kml object with
+// the data
+func LoadURL(url string) (*Kml, error) {
+	feed, err := util.GetURLBody(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return LoadSliceOfBytes(feed), nil
 }
 
 // LoadSliceOfBytes loads Garmin KML data from a slice of bytes

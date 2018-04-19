@@ -4,32 +4,62 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/grounded042/hike_map_translator/garmin"
 	"github.com/grounded042/hike_map_translator/models"
 	uuid "github.com/satori/go.uuid"
+	"github.com/spf13/cobra"
 )
 
-const timestampFormat = "01/02/2006"
+// uuid "github.com/satori/go.uuid"
 
+var source string
+var sourceURL string
+
+const timestampFormat = "01/02/2006"
 const tripsFolder = "trips/"
 const tripDetailsFolder = "details/"
 
 func main() {
-	url := os.Args[1]
-	feed, err := getURL(url)
+
+	rootCmd := &cobra.Command{
+		Use:   "hike_map_translator",
+		Short: "hike_map_translator translates data into a format for hike_map",
+	}
+
+	rootCmd.Flags().StringVarP(&source, "source", "s", "", "The source type to translate data from")
+	rootCmd.Flags().StringVarP(&sourceURL, "source_url", "u", "", "The url used to pull the data to translate")
+
+	rootCmd.Run = func(cmd *cobra.Command, args []string) {
+		translate(source, sourceURL)
+	}
+
+	err := rootCmd.Execute()
+	if err != nil {
+		os.Exit(2)
+	}
+}
+
+func translate(tSource, url string) {
+	var gFrom generateFrom
+	var err error
+
+	switch strings.ToLower(tSource) {
+	case "garmin":
+		gFrom, err = garmin.LoadURL(url)
+	default:
+		panic(fmt.Sprintf("unknown source %v", source))
+	}
 
 	if err != nil {
 		panic(err)
 	}
 
-	kml := garmin.LoadSliceOfBytes(feed)
-
-	generateJSON(kml)
+	generateJSON(gFrom)
 }
 
 type generateFrom interface {
@@ -99,24 +129,4 @@ func generateJSON(gFrom generateFrom) {
 	indexFilePath := tripsFolder + "index.json"
 	ioutil.WriteFile(indexFilePath, iJSON, 0644)
 
-}
-
-func getURL(url string) ([]byte, error) {
-	resp, err := http.Get(url)
-
-	if err != nil {
-		return nil, fmt.Errorf("GET error: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Status error: %v", resp.StatusCode)
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Read body: %v", err)
-	}
-
-	return data, nil
 }
