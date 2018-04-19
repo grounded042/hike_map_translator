@@ -1,10 +1,10 @@
 package models
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"sort"
 	"time"
-
-	"github.com/satori/go.uuid"
 )
 
 // Point represents a point on the Earth
@@ -121,22 +121,28 @@ type Bounds struct {
 
 // IndexDay holds the index details for a day
 type IndexDay struct {
-	Index           int       `json:"index"`
-	ID              uuid.UUID `json:"id"`
-	Label           string    `json:"label"`
-	SubLabel        string    `json:"subLabel"`
-	DetailsLocation string    `json:"detailsLocation"`
+	Index           int    `json:"index"`
+	ID              string `json:"id"`
+	Label           string `json:"label"`
+	SubLabel        string `json:"subLabel"`
+	DetailsLocation string `json:"detailsLocation"`
 }
 
 // NewIndexDay creates and returns a new index day
 func NewIndexDay(dayNum int, label, subLabel, detailsLocation string) IndexDay {
 	return IndexDay{
 		Index:           dayNum,
-		ID:              uuid.Must(uuid.NewV4()),
+		ID:              buildID(label),
 		Label:           label,
 		SubLabel:        subLabel,
 		DetailsLocation: detailsLocation,
 	}
+}
+
+func buildID(label string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(label))
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 }
 
 // Index is the type that holds an index entry for each day
