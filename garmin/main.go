@@ -2,6 +2,7 @@ package garmin
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -145,6 +146,28 @@ func (k *Kml) GetAllPoints() []models.Point {
 			Lat:       k.Document.Folder.Placemarks[i].ExtendedData.GetLatitude(),
 			Lon:       k.Document.Folder.Placemarks[i].ExtendedData.GetLongitude(),
 			Timestamp: k.Document.Folder.Placemarks[i].TimeStamp,
+		}
+	}
+
+	return points
+}
+
+// GetAllPointsStartingAtDate gets all the points from the kml data as long as
+// they are after the passed in time.
+func (k *Kml) GetAllPointsStartingAtDate(startDate time.Time) []models.Point {
+	points := []models.Point{}
+
+	// we ignore the last placemark since it does not include extended data and
+	// is more of a summary
+	fmt.Println(len(k.Document.Folder.Placemarks))
+	for i := 0; i < len(k.Document.Folder.Placemarks)-1; i++ {
+		if k.Document.Folder.Placemarks[i].TimeStamp.After(startDate) {
+			points = append(points, models.Point{
+				ID:        k.Document.Folder.Placemarks[i].ExtendedData.GetID(),
+				Lat:       k.Document.Folder.Placemarks[i].ExtendedData.GetLatitude(),
+				Lon:       k.Document.Folder.Placemarks[i].ExtendedData.GetLongitude(),
+				Timestamp: k.Document.Folder.Placemarks[i].TimeStamp,
+			})
 		}
 	}
 

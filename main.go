@@ -8,16 +8,16 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/grounded042/hike_map_translator/garmin"
 	"github.com/grounded042/hike_map_translator/models"
 	"github.com/spf13/cobra"
 )
 
-// uuid "github.com/satori/go.uuid"
-
 var source string
 var sourceURL string
+var startDate string
 
 const timestampFormat = "01/02/2006"
 const tripsFolder = "trips/"
@@ -32,15 +32,33 @@ func main() {
 
 	rootCmd.Flags().StringVarP(&source, "source", "s", "", "The source type to translate data from")
 	rootCmd.Flags().StringVarP(&sourceURL, "source_url", "u", "", "The url used to pull the data to translate")
+	rootCmd.Flags().StringVarP(&startDate, "start_date", "d", "", "The day on which to start pulling data from in the format of <month>/<day>/<year> with leading zeros")
 
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
-		translate(source, sourceURL)
+		var timeStartDate time.Time
+		if startDate == "" {
+			fmt.Println("`start_date` was not supplied - will not filter based on a start date")
+		} else {
+			t, err := time.Parse(timestampFormat, startDate)
+
+			if err != nil {
+				panic(err)
+			}
+
+			timeStartDate = getStartOfDayTime(t)
+		}
+
+		translate(source, sourceURL, timeStartDate)
 	}
 
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(2)
 	}
+}
+
+func getStartOfDayTime(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // buildDaysFromPoints takes a slice of points and groups a slice of points
@@ -116,9 +134,10 @@ func generateJSON(days map[string][]models.Point, dayKeys []string) {
 
 type generateFrom interface {
 	GetAllPoints() []models.Point
+	GetAllPointsStartingAtDate(time.Time) []models.Point
 }
 
-func translate(tSource, url string) {
+func translate(tSource, url string, sDate time.Time) {
 	var gFrom generateFrom
 	var err error
 
@@ -133,6 +152,13 @@ func translate(tSource, url string) {
 		panic(err)
 	}
 
-	points := gFrom.GetAllPoints()
+	var points []models.Point
+
+	if sDate.IsZero() {
+		points = gFrom.GetAllPoints()
+	} else {
+		points = gFrom.GetAllPointsStartingAtDate(sDate)
+	}
+
 	generateJSON(buildDaysFromPoints(points))
 }
