@@ -18,6 +18,7 @@ import (
 var source string
 var sourceURL string
 var startDate string
+var endDate string
 
 const timestampFormat = "01/02/2006"
 const tripsFolder = "trips/"
@@ -33,28 +34,38 @@ func main() {
 	rootCmd.Flags().StringVarP(&source, "source", "s", "", "The source type to translate data from")
 	rootCmd.Flags().StringVarP(&sourceURL, "source_url", "u", "", "The url used to pull the data to translate")
 	rootCmd.Flags().StringVarP(&startDate, "start_date", "d", "", "The day on which to start pulling data from in the format of <month>/<day>/<year> with leading zeros")
+	rootCmd.Flags().StringVarP(&endDate, "end_date", "e", "", "The day on which to stop pulling data from in the format of <month>/<day>/<year> with leading zeros")
 
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
-		var timeStartDate time.Time
-		if startDate == "" {
-			fmt.Println("`start_date` was not supplied - will not filter based on a start date")
-		} else {
-			t, err := time.Parse(timestampFormat, startDate)
+		timeStartDate := convertDate(startDate, "`start_date` was not supplied - will not filter based on a start date")
+		timeEndDate := convertDate(endDate, "`end_date` was not supplied - will not filter based on a end date")
 
-			if err != nil {
-				panic(err)
-			}
-
-			timeStartDate = getStartOfDayTime(t)
+		if !timeEndDate.IsZero() {
+			timeEndDate = timeEndDate.AddDate(0, 0, 1)
 		}
 
-		translate(source, sourceURL, timeStartDate)
+		translate(source, sourceURL, timeStartDate, timeEndDate)
 	}
 
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(2)
 	}
+}
+
+func convertDate(date string, errMessage string) time.Time {
+	if date == "" {
+		fmt.Println(errMessage)
+		return time.Time{}
+	}
+
+	t, err := time.Parse(timestampFormat, date)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return getStartOfDayTime(t)
 }
 
 func getStartOfDayTime(t time.Time) time.Time {
@@ -133,11 +144,10 @@ func generateJSON(days map[string][]models.Point, dayKeys []string) {
 }
 
 type generateFrom interface {
-	GetAllPoints() []models.Point
-	GetAllPointsStartingAtDate(time.Time) []models.Point
+	GetAllPoints(time.Time, time.Time) []models.Point
 }
 
-func translate(tSource, url string, sDate time.Time) {
+func translate(tSource, url string, sDate, eDate time.Time) {
 	var gFrom generateFrom
 	var err error
 
@@ -152,12 +162,11 @@ func translate(tSource, url string, sDate time.Time) {
 		panic(err)
 	}
 
-	var points []models.Point
+	points := gFrom.GetAllPoints(sDate, eDate)
 
-	if sDate.IsZero() {
-		points = gFrom.GetAllPoints()
-	} else {
-		points = gFrom.GetAllPointsStartingAtDate(sDate)
+	if len(points) == 0 {
+		fmt.Println("No points to translate!")
+		return
 	}
 
 	generateJSON(buildDaysFromPoints(points))

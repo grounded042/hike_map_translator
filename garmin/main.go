@@ -2,7 +2,6 @@ package garmin
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -40,6 +39,16 @@ type Placemark struct {
 	TimeStamp    time.Time        `xml:"TimeStamp>when"`
 	ExtendedData ExtendedDataData `xml:"ExtendedData>Data"`
 	Coordinates  string           `xml:"Point>coordinates"`
+}
+
+// ToPoint converts a Placemark to a models.Point
+func (p *Placemark) ToPoint() models.Point {
+	return models.Point{
+		ID:        p.ExtendedData.GetID(),
+		Lat:       p.ExtendedData.GetLatitude(),
+		Lon:       p.ExtendedData.GetLongitude(),
+		Timestamp: p.TimeStamp,
+	}
 }
 
 // Data corresponds to the ExtendedData Data kml element
@@ -134,42 +143,57 @@ func LoadSliceOfBytes(bytes []byte) *Kml {
 
 // GetAllPoints gets all the points from the kml data and satisfies the
 // generateFrom interface
-func (k *Kml) GetAllPoints() []models.Point {
+func (k *Kml) GetAllPoints(startDate, endDate time.Time) []models.Point {
+	if !startDate.IsZero() || !endDate.IsZero() {
+		return k.getAllPointsFiltered(startDate, endDate)
+	}
+
 	// we ignore the last placemark since it does not include extended data and
 	// is more of a summary
 	size := len(k.Document.Folder.Placemarks) - 1
 	points := make([]models.Point, size, size)
 
 	for i := 0; i < size; i++ {
-		points[i] = models.Point{
-			ID:        k.Document.Folder.Placemarks[i].ExtendedData.GetID(),
-			Lat:       k.Document.Folder.Placemarks[i].ExtendedData.GetLatitude(),
-			Lon:       k.Document.Folder.Placemarks[i].ExtendedData.GetLongitude(),
-			Timestamp: k.Document.Folder.Placemarks[i].TimeStamp,
+		points[i] = k.Document.Folder.Placemarks[i].ToPoint()
+	}
+
+	return points
+}
+
+// getAllPointsFiltered gets all the points from the kml data filtered using
+// the passed in dates
+func (k *Kml) getAllPointsFiltered(startDate, endDate time.Time) []models.Point {
+	points := []models.Point{}
+
+	filterFunc := getDateFilterFunc(startDate, endDate)
+
+	// we ignore the last placemark since it does not include extended data and
+	// is more of a summary
+	for i := 0; i < len(k.Document.Folder.Placemarks)-1; i++ {
+		if filterFunc(k.Document.Folder.Placemarks[i].TimeStamp) {
+			points = append(points, k.Document.Folder.Placemarks[i].ToPoint())
 		}
 	}
 
 	return points
 }
 
-// GetAllPointsStartingAtDate gets all the points from the kml data as long as
-// they are after the passed in time.
-func (k *Kml) GetAllPointsStartingAtDate(startDate time.Time) []models.Point {
-	points := []models.Point{}
-
-	// we ignore the last placemark since it does not include extended data and
-	// is more of a summary
-	fmt.Println(len(k.Document.Folder.Placemarks))
-	for i := 0; i < len(k.Document.Folder.Placemarks)-1; i++ {
-		if k.Document.Folder.Placemarks[i].TimeStamp.After(startDate) {
-			points = append(points, models.Point{
-				ID:        k.Document.Folder.Placemarks[i].ExtendedData.GetID(),
-				Lat:       k.Document.Folder.Placemarks[i].ExtendedData.GetLatitude(),
-				Lon:       k.Document.Folder.Placemarks[i].ExtendedData.GetLongitude(),
-				Timestamp: k.Document.Folder.Placemarks[i].TimeStamp,
-			})
+func getDateFilterFunc(startDate, endDate time.Time) func(time.Time) bool {
+	if startDate.IsZero() && endDate.IsZero() {
+		return func(t time.Time) bool {
+			return true
+		}
+	} else if !startDate.IsZero() && endDate.IsZero() {
+		return func(t time.Time) bool {
+			return t.After(startDate)
+		}
+	} else if startDate.IsZero() && !endDate.IsZero() {
+		return func(t time.Time) bool {
+			return t.Before(startDate)
 		}
 	}
 
-	return points
+	return func(t time.Time) bool {
+		return t.After(startDate) && t.Before(endDate)
+	}
 }
