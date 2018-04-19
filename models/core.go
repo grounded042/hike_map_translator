@@ -128,5 +128,16 @@ type IndexDay struct {
 	DetailsLocation string    `json:"detailsLocation"`
 }
 
+// NewIndexDay creates and returns a new index day
+func NewIndexDay(dayNum int, label, subLabel, detailsLocation string) IndexDay {
+	return IndexDay{
+		Index:           dayNum,
+		ID:              uuid.Must(uuid.NewV4()),
+		Label:           label,
+		SubLabel:        subLabel,
+		DetailsLocation: detailsLocation,
+	}
+}
+
 // Index is the type that holds an index entry for each day
 type Index []IndexDay

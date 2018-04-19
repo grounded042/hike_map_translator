@@ -11,7 +11,6 @@ import (
 
 	"github.com/grounded042/hike_map_translator/garmin"
 	"github.com/grounded042/hike_map_translator/models"
-	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -44,35 +43,13 @@ func main() {
 	}
 }
 
-func translate(tSource, url string) {
-	var gFrom generateFrom
-	var err error
-
-	switch strings.ToLower(tSource) {
-	case "garmin":
-		gFrom, err = garmin.LoadURL(url)
-	default:
-		panic(fmt.Sprintf("unknown source: %v", source))
-	}
-
-	if err != nil {
-		panic(err)
-	}
-
-	generateJSON(gFrom)
-}
-
-type generateFrom interface {
-	GetAllPoints() []models.Point
-}
-
-func generateJSON(gFrom generateFrom) {
-	points := gFrom.GetAllPoints()
-
-	// sort
+// buildDaysFromPoints takes a slice of points and groups a slice of points
+// into a day. It returns a map of the days with their corresponding slice of
+// points and an ordered slice of map keys of days.
+func buildDaysFromPoints(points []models.Point) (map[string][]models.Point, []string) {
+	// sort the points so they are in order by timestamp
 	sort.Sort(models.ByTimestamp(points))
 
-	// get each day
 	previousDay := points[0].Timestamp.Format(timestampFormat)
 	dayStartingIndex := 0
 	days := map[string][]models.Point{}
@@ -90,43 +67,72 @@ func generateJSON(gFrom generateFrom) {
 	days[previousDay] = points[dayStartingIndex:len(points)]
 	dayKeys = append(dayKeys, previousDay)
 
+	return days, dayKeys
+}
+
+// writeDayJSON writes the passed in day info to a JSON file and returns the
+// location of the file
+func writeDayJSON(day *models.Day, dayName string) string {
+	dJSON, _ := json.MarshalIndent(day, "", "	")
+	detailsFilePath := tripDetailsFolder + dayName + ".json"
+	ioutil.WriteFile(tripsFolder+detailsFilePath, dJSON, 0644)
+
+	return detailsFilePath
+}
+
+// generateJSON takes a map of days and their points along with the ordered
+// slice of the map keys so the days can be properly ordered
+func generateJSON(days map[string][]models.Point, dayKeys []string) {
 	os.MkdirAll(tripsFolder+tripDetailsFolder, os.ModePerm)
 
 	cumulativeCoords := [][]float64{}
 
 	index := make([]models.IndexDay, len(dayKeys)+1)
 
+	// create the individual days
 	for i, key := range dayKeys {
 		dayNum := i + 1
 		day := models.DayFromSliceOfPoints(key, dayNum, days[key])
 		cumulativeCoords = append(cumulativeCoords, day.Coordinates...)
-		dJSON, _ := json.MarshalIndent(day, "", "	")
 		dayName := "Day " + strconv.Itoa(dayNum)
-		detailsFilePath := tripDetailsFolder + dayName + ".json"
-		ioutil.WriteFile(tripsFolder+detailsFilePath, dJSON, 0644)
+		detailsFilePath := writeDayJSON(day, dayName)
 
-		index[dayNum].Index = dayNum
-		index[dayNum].ID = uuid.Must(uuid.NewV4())
-		index[dayNum].Label = dayName
-		index[dayNum].SubLabel = key
-		index[dayNum].DetailsLocation = detailsFilePath
+		index[dayNum] = models.NewIndexDay(dayNum, dayName, key, detailsFilePath)
 	}
 
-	// write the all day
+	// create the all day
 	allDay := models.DayFromCoords("All", 0, cumulativeCoords)
-	dJSON, _ := json.MarshalIndent(allDay, "", "	")
 	dayName := "All"
-	detailsFilePath := tripDetailsFolder + dayName + ".json"
-	ioutil.WriteFile(tripsFolder+detailsFilePath, dJSON, 0644)
+	detailsFilePath := writeDayJSON(allDay, dayName)
 
-	index[0].Index = 0
-	index[0].ID = uuid.Must(uuid.NewV4())
-	index[0].Label = dayName
-	index[0].DetailsLocation = detailsFilePath
+	index[0] = models.NewIndexDay(0, dayName, "", detailsFilePath)
 
 	// write the index
 	iJSON, _ := json.MarshalIndent(index, "", "	")
 	indexFilePath := tripsFolder + "index.json"
 	ioutil.WriteFile(indexFilePath, iJSON, 0644)
 
+}
+
+type generateFrom interface {
+	GetAllPoints() []models.Point
+}
+
+func translate(tSource, url string) {
+	var gFrom generateFrom
+	var err error
+
+	switch strings.ToLower(tSource) {
+	case "garmin":
+		gFrom, err = garmin.LoadURL(url)
+	default:
+		panic(fmt.Sprintf("unknown source: %v", source))
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	points := gFrom.GetAllPoints()
+	generateJSON(buildDaysFromPoints(points))
 }
