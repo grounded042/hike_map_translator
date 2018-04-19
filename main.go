@@ -52,7 +52,7 @@ func translate(tSource, url string) {
 	case "garmin":
 		gFrom, err = garmin.LoadURL(url)
 	default:
-		panic(fmt.Sprintf("unknown source %v", source))
+		panic(fmt.Sprintf("unknown source: %v", source))
 	}
 
 	if err != nil {
@@ -73,22 +73,22 @@ func generateJSON(gFrom generateFrom) {
 	sort.Sort(models.ByTimestamp(points))
 
 	// get each day
-	lastDay := points[0].Timestamp.Format(timestampFormat)
+	previousDay := points[0].Timestamp.Format(timestampFormat)
 	dayStartingIndex := 0
 	days := map[string][]models.Point{}
 	dayKeys := []string{}
 	for i := 0; i < len(points); i++ {
 		curDay := points[i].Timestamp.Format(timestampFormat)
 
-		if curDay != lastDay {
-			days[lastDay] = points[dayStartingIndex : i-1]
-			dayKeys = append(dayKeys, lastDay)
-			lastDay = curDay
+		if curDay != previousDay {
+			days[previousDay] = points[dayStartingIndex : i-1]
+			dayKeys = append(dayKeys, previousDay)
+			previousDay = curDay
 			dayStartingIndex = i
 		}
 	}
-	days[lastDay] = points[dayStartingIndex:len(points)]
-	dayKeys = append(dayKeys, lastDay)
+	days[previousDay] = points[dayStartingIndex:len(points)]
+	dayKeys = append(dayKeys, previousDay)
 
 	os.MkdirAll(tripsFolder+tripDetailsFolder, os.ModePerm)
 
