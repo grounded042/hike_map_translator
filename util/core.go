@@ -7,8 +7,17 @@ import (
 )
 
 // GetURLBody gets and returns the body of the passed in url
-func GetURLBody(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+func GetURLBody(url, password string) ([]byte, error) {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Error building GET: %v", err)
+	}
+
+	req.SetBasicAuth("", password)
+
+	resp, err := client.Do(req)
 
 	if err != nil {
 		return nil, fmt.Errorf("GET error: %v", err)

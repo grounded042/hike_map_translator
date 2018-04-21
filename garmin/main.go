@@ -123,8 +123,8 @@ func LoadFile(filepath string) (*Kml, error) {
 
 // LoadURL loads data from the specified URL and returns the Kml object with
 // the data
-func LoadURL(url string) (*Kml, error) {
-	feed, err := util.GetURLBody(url)
+func LoadURL(url, password string) (*Kml, error) {
+	feed, err := util.GetURLBody(url, password)
 
 	if err != nil {
 		return nil, err

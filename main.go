@@ -20,6 +20,7 @@ var sourceURL string
 var startDate string
 var endDate string
 var tripName string
+var password string
 
 const timestampFormat = "01/02/2006"
 const tripsFolder = "trips/"
@@ -37,6 +38,7 @@ func main() {
 	rootCmd.Flags().StringVarP(&startDate, "start_date", "d", "", "The day on which to start pulling data from in the format of <month>/<day>/<year> with leading zeros")
 	rootCmd.Flags().StringVarP(&endDate, "end_date", "e", "", "The day on which to stop pulling data from in the format of <month>/<day>/<year> with leading zeros")
 	rootCmd.Flags().StringVarP(&tripName, "trip_name", "n", "", "The name of the trip")
+	rootCmd.Flags().StringVarP(&password, "password", "p", "", "The username, if any, for pulling the data from the source_url")
 
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
 		timeStartDate := convertDate(startDate, "`start_date` was not supplied - will not filter based on a start date")
@@ -46,7 +48,7 @@ func main() {
 			timeEndDate = timeEndDate.AddDate(0, 0, 1)
 		}
 
-		translate(source, sourceURL, timeStartDate, timeEndDate, tripName)
+		translate(source, sourceURL, timeStartDate, timeEndDate, tripName, password)
 	}
 
 	err := rootCmd.Execute()
@@ -149,13 +151,13 @@ type generateFrom interface {
 	GetAllPoints(time.Time, time.Time) []models.Point
 }
 
-func translate(tSource, url string, sDate, eDate time.Time, tName string) {
+func translate(tSource, url string, sDate, eDate time.Time, tName, pword string) {
 	var gFrom generateFrom
 	var err error
 
 	switch strings.ToLower(tSource) {
 	case "garmin":
-		gFrom, err = garmin.LoadURL(url)
+		gFrom, err = garmin.LoadURL(url, pword)
 	default:
 		panic(fmt.Sprintf("unknown source: %v", source))
 	}
